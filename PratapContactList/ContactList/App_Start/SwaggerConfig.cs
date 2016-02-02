@@ -151,7 +151,7 @@ namespace ContactList
                         // Set filter to eliminate duplicate operation ids from being generated
                         // when there are multiple operations with the same verb in the API.
                         //
-                        c.OperationFilter<IncludeParameterNamesInOperationIdFilter>();
+                        //c.OperationFilter<IncludeParameterNamesInOperationIdFilter>();
 
                         // Post-modify the entire Swagger document by wiring up one or more Document filters.
                         // This gives full control to modify the final SwaggerDocument. You should have a good understanding of
