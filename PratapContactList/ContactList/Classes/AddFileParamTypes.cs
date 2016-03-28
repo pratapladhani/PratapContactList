@@ -19,7 +19,7 @@ namespace ContactList
                         required = true,
                         type = "file",
                         @in = "formData",
-                        format = "image"
+                        vendorExtensions = new Dictionary<string, object> { {"x-ms-media-kind", "image" } }
                     }
                 };
             }
