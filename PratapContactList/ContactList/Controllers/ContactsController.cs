@@ -1,67 +1,30 @@
-﻿using ContactList.Models;
+﻿using System;
 using System.Collections.Generic;
-using System.Threading.Tasks;
-using System.Web.Http;
+using System.Data;
+using System.Data.Entity;
+using System.Data.Entity.Infrastructure;
 using System.Linq;
-using Swashbuckle.Swagger.Annotations;
 using System.Net;
 using System.Net.Http;
+using System.Web.Http;
+using System.Web.Http.Description;
+using ContactList.Models;
+using Swashbuckle.Swagger.Annotations;
 
 namespace ContactList.Controllers
 {
     public class ContactsController : ApiController
     {
-        private const string FILENAME = "contacts.json";
-        private GenericStorage _storage;
+        private ContactContext db = new ContactContext();
 
-        public ContactsController()
+        // GET: api/Contacts
+        public IQueryable<Contact> GetContacts()
         {
-            _storage = new GenericStorage();
+            return db.Contacts;
         }
 
-        private async Task<IEnumerable<Contact>> GetContacts()
-        {
-            var contacts = await _storage.Get(FILENAME);
-
-            if (contacts == null)
-            {
-                await _storage.Save(new Contact[]{
-                        new Contact {
-                            Id = 1,
-                            Name = "First Contact",
-                            Phone="(123) 456 789",
-                            Phone2="(123) 456 789",
-                            Company="Contoso Inc.",
-                            Email = "one@contoso.com",
-                            Title="CEO",
-                            ImageURL="https://cdn2.iconfinder.com/data/icons/human-resources-1/500/ceo-512.png",
-                            Address="One Contoso Street Contosomond WA 12345"
-                        }
-                    }
-                , FILENAME);
-            }
-
-            return contacts;
-        }
-
-        /// <summary>
-        /// Gets the list of contacts
-        /// </summary>
-        /// <returns>The contacts</returns>
-        [HttpGet]
-        [SwaggerResponse(HttpStatusCode.OK,
-            Type = typeof(IEnumerable<Contact>))]
-        [Route("~/contacts")]
-        public async Task<IEnumerable<Contact>> Get()
-        {
-            return await GetContacts();
-        }
-
-        /// <summary>
-        /// Gets a specific contact
-        /// </summary>
-        /// <param name="id">Identifier for the contact</param>
-        /// <returns>The requested contact</returns>
+        // GET: api/Contacts/5
+        [ResponseType(typeof(Contact))]
         [HttpGet]
         [SwaggerResponse(HttpStatusCode.OK,
             Description = "OK",
@@ -69,38 +32,88 @@ namespace ContactList.Controllers
         [SwaggerResponse(HttpStatusCode.NotFound,
             Description = "Contact not found",
             Type = typeof(IEnumerable<Contact>))]
-        [SwaggerOperation("GetContactById")]
-        [Route("~/contacts/{id}")]
-        public async Task<Contact> Get([FromUri] int id)
+        //[SwaggerOperation("GetContactById")]
+        //[Route("~/contacts/{id}")]
+        public IHttpActionResult Get([FromUri] int id)
         {
-            var contacts = await GetContacts();
-            return contacts.FirstOrDefault(x => x.Id == id);
+            Contact contact = db.Contacts.Find(id);
+            if (contact == null)
+            {
+                return NotFound();
+            }
+
+            return Ok(contact);
         }
 
-        /// <summary>
-        /// Creates a new contact
-        /// </summary>
-        /// <param name="contact">The new contact</param>
-        /// <returns>The saved contact</returns>
+        // PUT: api/Contacts/5
+        [ResponseType(typeof(void))]
+        [HttpPut]
+        [SwaggerResponse(HttpStatusCode.BadRequest,
+            Description = "Invalid Contact",
+            Type = typeof(Contact))]
+        [SwaggerResponse(HttpStatusCode.NotFound,
+            Description = "Contact not found",
+            Type = typeof(bool))]
+        [SwaggerResponse(HttpStatusCode.NoContent,
+            Description = "Contact updated",
+            Type = typeof(void))]
+        //[Route("~/contacts/{id}")]
+        public IHttpActionResult Put([FromUri] int id, [FromBody] Contact contact)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            if (id != contact.Id)
+            {
+                return BadRequest();
+            }
+
+            db.Entry(contact).State = EntityState.Modified;
+
+            try
+            {
+                db.SaveChanges();
+            }
+            catch (DbUpdateConcurrencyException)
+            {
+                if (!ContactExists(id))
+                {
+                    return NotFound();
+                }
+                else
+                {
+                    throw;
+                }
+            }
+
+            return StatusCode(HttpStatusCode.NoContent);
+        }
+
+        // POST: api/Contacts
+        
         [HttpPost]
         [SwaggerResponse(HttpStatusCode.Created,
             Description = "Created",
             Type = typeof(Contact))]
-        [Route("~/contacts")]
-        public async Task<Contact> Post([FromBody] Contact contact)
+        //[Route("~/contacts")]
+        [ResponseType(typeof(Contact))]
+        public IHttpActionResult Post([FromBody] Contact contact)
         {
-            var contacts = await GetContacts();
-            var contactList = contacts.ToList();
-            contactList.Add(contact);
-            await _storage.Save(contactList, FILENAME);
-            return contact;
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            db.Contacts.Add(contact);
+            db.SaveChanges();
+
+            return CreatedAtRoute("DefaultApi", new { id = contact.Id }, contact);
         }
 
-        /// <summary>
-        /// Deletes a contact
-        /// </summary>
-        /// <param name="id">Identifier of the contact to be deleted</param>
-        /// <returns>True if the contact was deleted</returns>
+        // DELETE: api/Contacts/5
+        
         [HttpDelete]
         [SwaggerResponse(HttpStatusCode.OK,
             Description = "OK",
@@ -108,22 +121,34 @@ namespace ContactList.Controllers
         [SwaggerResponse(HttpStatusCode.NotFound,
             Description = "Contact not found",
             Type = typeof(bool))]
-        [Route("~/contacts/{id}")]
-        public async Task<HttpResponseMessage> Delete([FromUri] int id)
+        //[Route("~/contacts/{id}")]
+        [ResponseType(typeof(Contact))]
+        public IHttpActionResult Delete([FromUri] int id)
         {
-            var contacts = await GetContacts();
-            var contactList = contacts.ToList();
+            Contact contact = db.Contacts.Find(id);
+            if (contact == null)
+            {
+                return NotFound();
+            }
 
-            if (!contactList.Any(x => x.Id == id))
+            db.Contacts.Remove(contact);
+            db.SaveChanges();
+
+            return Ok(contact);
+        }
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
             {
-                return Request.CreateResponse<bool>(HttpStatusCode.NotFound, false);
+                db.Dispose();
             }
-            else
-            {
-                contactList.RemoveAll(x => x.Id == id);
-                await _storage.Save(contactList, FILENAME);
-                return Request.CreateResponse<bool>(HttpStatusCode.OK, true);
-            }
+            base.Dispose(disposing);
+        }
+
+        private bool ContactExists(int id)
+        {
+            return db.Contacts.Count(e => e.Id == id) > 0;
         }
     }
 }

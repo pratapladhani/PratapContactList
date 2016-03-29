@@ -42,21 +42,6 @@ namespace ContactList.Models
         public string Title { get; set; }
 
 
-        private DateTime _dateCreated;
-        /// <summary>
-        /// The DateTime on which the contact was created in the system
-        /// </summary>
-        public DateTime DateCreated {
-            get
-            {
-                return _dateCreated;
-            }
-            set
-            {
-                _dateCreated = DateTime.UtcNow; 
-            }
-        }
-
         /// <summary>
         /// The Contact's Image URL. 
         /// </summary>
